@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 240 10% 4%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 6%;
+    --border: 240 5% 15%;
+    --primary: 220 70% 50%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 5% 12%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 5% 15%;
+    --muted-foreground: 240 5% 65%;
+    --destructive: 0 62% 45%;
+    --success: 142 70% 45%;
+    --warning: 38 92% 50%;
+    --accent: 160 51% 58%;
+    --accent-foreground: 160 40% 8%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+
+  ::-webkit-scrollbar {
+    @apply w-1.5 h-1.5;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+  }
+}
+
+@layer components {
+  .nav-link {
+    @apply flex items-center gap-3 px-3 py-2 text-sm font-medium text-muted-foreground rounded-md transition-colors hover:text-foreground hover:bg-secondary/50;
+  }
+
+  .nav-link-active {
+    @apply text-foreground bg-secondary/80;
+  }
+
+  .focus-ring {
+    @apply focus:outline-none focus:ring-1 focus:ring-primary/50 focus:ring-offset-1 focus:ring-offset-background;
+  }
+}
