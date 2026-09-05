@@ -1,39 +1,69 @@
 import { demoPortfolio } from "../data/demoData";
-import { fetchJupiterPrices } from "./jupiterApi";
+import { getWalletOverview } from "./solanaApi";
+import { fetchJupiterPrices, symbolForMint } from "./jupiterApi";
 
-export async function getPortfolio() {
-  const symbols = demoPortfolio.assets.map((a) => a.symbol);
+const KNOWN_NAMES = {
+  SOL: "Solana",
+  JUP: "Jupiter",
+  RAY: "Raydium",
+  BONK: "Bonk",
+  PYTH: "Pyth Network",
+  WIF: "dogwifhat",
+};
+
+export async function getPortfolio(address) {
+  if (!address) throw new Error("No wallet connected");
+
+  const overview = await getWalletOverview(address);
+
+  const knownTokens = overview.tokens
+    .map((t) => ({ ...t, symbol: symbolForMint(t.mint) }))
+    .filter((t) => t.symbol);
+
+  const symbols = ["SOL", ...knownTokens.map((t) => t.symbol)];
   const prices = await fetchJupiterPrices(symbols);
 
-  let totalValue = 0;
-  let previousValue = 0;
+  const solPrice = prices.SOL?.price ?? 0;
+  const solValue = overview.solBalance * solPrice;
 
-  const assets = demoPortfolio.assets.map((asset) => {
-    const live = prices[asset.symbol];
-    const price = live?.price ?? asset.price;
-    const change24h = live?.change24h ?? asset.change24h;
-    const value = Number((asset.holdings * price).toFixed(2));
+  const assets = [
+    {
+      symbol: "SOL",
+      name: "Solana",
+      price: solPrice,
+      holdings: overview.solBalance,
+      value: Number(solValue.toFixed(2)),
+      change24h: prices.SOL?.change24h ?? 0,
+    },
+    ...knownTokens.map((t) => {
+      const price = prices[t.symbol]?.price ?? 0;
+      const change24h = prices[t.symbol]?.change24h ?? 0;
+      return {
+        symbol: t.symbol,
+        name: KNOWN_NAMES[t.symbol] || t.symbol,
+        price,
+        holdings: t.amount,
+        value: Number((t.amount * price).toFixed(2)),
+        change24h,
+      };
+    }),
+  ];
 
-    totalValue += value;
-    previousValue += value / (1 + change24h / 100);
-
-    return { ...asset, price, change24h, value };
-  });
-
+  const totalValue = assets.reduce((sum, a) => sum + a.value, 0);
+  const previousValue = assets.reduce((sum, a) => sum + a.value / (1 + a.change24h / 100), 0);
   const pnl24h = Number((totalValue - previousValue).toFixed(2));
   const change24h =
     previousValue > 0 ? Number((((totalValue - previousValue) / previousValue) * 100).toFixed(2)) : 0;
 
-  const solPrice = prices.SOL?.price ?? demoPortfolio.solBalanceUsd / demoPortfolio.solBalance;
-
   return {
-    ...demoPortfolio,
-    assets,
     totalValue: Number(totalValue.toFixed(2)),
-    pnl24h,
     change24h,
-    solBalanceUsd: Number((demoPortfolio.solBalance * solPrice).toFixed(2)),
-    // Historical series stays demo — Jupiter's price API only returns current price, no free history source available
+    pnl24h,
+    solBalance: overview.solBalance,
+    solBalanceUsd: Number(solValue.toFixed(2)),
+    assets,
+    unknownTokenCount: overview.tokens.length - knownTokens.length,
+    // Historical series stays illustrative — no free source for real historical portfolio value
     chart: demoPortfolio.chart,
   };
 }

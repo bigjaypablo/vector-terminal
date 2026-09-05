@@ -19,8 +19,8 @@ import { useRecentActivity } from "../hooks/useRecentActivity";
 import { useWallet } from "../context/WalletContext";
 
 export default function Dashboard() {
-  const { connected } = useWallet();
-  const { data, loading, error, refetch } = usePortfolio();
+  const { connected, address } = useWallet();
+  const { data, loading, error, refetch } = usePortfolio(connected ? address : null);
   const market = useMarketData();
   const pulse = useMarketPulse();
   const trending = useTrending();

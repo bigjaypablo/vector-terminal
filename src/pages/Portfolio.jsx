@@ -1,4 +1,5 @@
 import AppShell from "../components/layout/AppShell";
+import { useWallet } from "../context/WalletContext";
 import PortfolioOverview from "../components/dashboard/PortfolioOverview";
 import PortfolioMetrics from "../components/dashboard/PortfolioMetrics";
 import PortfolioAllocation from "../components/dashboard/PortfolioAllocation";
@@ -19,7 +20,8 @@ function fmtPrice(p) {
 }
 
 export default function Portfolio() {
-  const { data, loading, error, refetch } = usePortfolio();
+  const { connected, address } = useWallet();
+  const { data, loading, error, refetch } = usePortfolio(connected ? address : null);
   const activity = useRecentActivity();
 
   return (

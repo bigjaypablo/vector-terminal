@@ -1,21 +1,40 @@
-import { createContext, useContext, useMemo, useState, useCallback } from "react";
+import { createContext, useContext, useMemo, useState, useCallback, useEffect } from "react";
 import {
   ConnectionProvider,
   WalletProvider as SolanaWalletProvider,
   useWallet as useSolanaWallet,
+  useConnection,
 } from "@solana/wallet-adapter-react";
 import { PhantomWalletAdapter } from "@solana/wallet-adapter-phantom";
 import { SolflareWalletAdapter } from "@solana/wallet-adapter-solflare";
 
 const RPC_URL = "https://api.mainnet-beta.solana.com";
+const MAINNET_GENESIS_HASH = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
 
 const VectorWalletContext = createContext(null);
 
 function InnerProvider({ children }) {
-  const { publicKey, connected, connecting, wallets, select, connect, disconnect, wallet } =
-    useSolanaWallet();
+  const { connection } = useConnection();
+  const { publicKey, connected, connecting, wallets, select, disconnect, wallet } = useSolanaWallet();
   const [modalOpen, setModalOpen] = useState(false);
   const [connectError, setConnectError] = useState(null);
+  const [networkStatus, setNetworkStatus] = useState("checking");
+
+  useEffect(() => {
+    let cancelled = false;
+    connection
+      .getGenesisHash()
+      .then((hash) => {
+        if (cancelled) return;
+        setNetworkStatus(hash === MAINNET_GENESIS_HASH ? "ok" : "mismatch");
+      })
+      .catch(() => {
+        if (!cancelled) setNetworkStatus("error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [connection]);
 
   const openConnectModal = useCallback(() => {
     setConnectError(null);
@@ -49,6 +68,7 @@ function InnerProvider({ children }) {
     chooseWallet,
     connectError,
     activeWalletName: wallet?.adapter.name || null,
+    networkStatus,
   };
 
   return <VectorWalletContext.Provider value={value}>{children}</VectorWalletContext.Provider>;
