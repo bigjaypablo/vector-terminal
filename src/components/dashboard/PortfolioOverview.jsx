@@ -9,7 +9,7 @@ export default function PortfolioOverview({ data, loading, error, onRetry }) {
   const [timeframe, setTimeframe] = useState("1D");
   const [chartType, setChartType] = useState("line");
 
-  if (loading) {
+  if (loading || !data) {
     return (
       <div className="bg-white/4 border border-white/10 rounded-xl p-4 md:p-6">
         <Skeleton className="h-3 w-24 mb-2" />

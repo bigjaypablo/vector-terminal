@@ -1,7 +1,7 @@
 import { Skeleton } from "../ui/Skeleton";
 
 export default function PortfolioMetrics({ data, loading }) {
-  if (loading) {
+  if (loading || !data) {
     return (
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
         {Array.from({ length: 4 }).map((_, i) => (

@@ -8,7 +8,8 @@ export function usePortfolio(address) {
 
   const fetchData = useCallback(async () => {
     if (!address) {
-      setLoading(false);
+      setData(null);
+      setLoading(true);
       return;
     }
     setLoading(true);

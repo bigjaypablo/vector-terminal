@@ -1,7 +1,7 @@
 import { Skeleton } from "../ui/Skeleton";
 
 export default function IntelligencePanel({ data, market, loading }) {
-  if (loading) {
+  if (loading || !data) {
     return (
       <div className="md:h-full md:flex md:flex-col">
         <Skeleton className="h-3 w-24 mb-2" />
