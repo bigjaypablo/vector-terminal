@@ -1,11 +1,10 @@
-import { createContext, useContext, useMemo, useState, useEffect } from "react";
+import { createContext, useContext, useMemo, useState, useEffect, useCallback } from "react";
 import {
   ConnectionProvider,
   WalletProvider as SolanaWalletProvider,
   useWallet as useSolanaWallet,
   useConnection,
 } from "@solana/wallet-adapter-react";
-import { WalletModalProvider, useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { PhantomWalletAdapter } from "@solana/wallet-adapter-phantom";
 import { SolflareWalletAdapter } from "@solana/wallet-adapter-solflare";
 
@@ -18,7 +17,7 @@ const VectorWalletContext = createContext(null);
 function InnerProvider({ children }) {
   const { connection } = useConnection();
   const { publicKey, connected, connecting, disconnect, wallet, wallets, select } = useSolanaWallet();
-  const { setVisible, visible } = useWalletModal();
+  const [modalOpen, setModalOpen] = useState(false);
   const [networkStatus, setNetworkStatus] = useState("checking");
 
   useEffect(() => {
@@ -37,32 +36,31 @@ function InnerProvider({ children }) {
     };
   }, [connection]);
 
-  // The official modal renders directly off the adapter's own registered
-  // wallet list — including any auto-injected Wallet Standard entries like
-  // "Mobile Wallet Adapter" that we never explicitly added. We only want
-  // to offer the two wallets we've actually chosen to support.
-  useEffect(() => {
-    if (!visible) return;
-    const style = document.createElement("style");
-    style.id = "vector-wallet-filter";
-    const rules = wallets
-      .filter((w) => !ALLOWED_WALLETS.includes(w.adapter.name))
-      .map((w) => `[data-wallet-name="${w.adapter.name}"] { display: none !important; }`)
-      .join("\n");
-    style.textContent = rules;
-    document.head.appendChild(style);
-    return () => style.remove();
-  }, [visible, wallets]);
+  const chooseWallet = useCallback(
+    (walletName) => {
+      select(walletName);
+      setModalOpen(false);
+      // autoConnect on SolanaWalletProvider handles the actual connect() call
+      // once a wallet is selected — this is what triggers each adapter's own
+      // correct mobile-vs-desktop behavior, not anything we build ourselves.
+    },
+    [select]
+  );
 
   const address = publicKey ? publicKey.toBase58() : null;
+  const visibleWallets = wallets.filter((w) => ALLOWED_WALLETS.includes(w.adapter.name));
 
   const value = {
     connected,
     connecting,
     address,
     shortAddress: address ? `${address.slice(0, 4)}...${address.slice(-4)}` : null,
-    connect: () => setVisible(true),
+    connect: () => setModalOpen(true),
     disconnect,
+    modalOpen,
+    closeModal: () => setModalOpen(false),
+    wallets: visibleWallets,
+    chooseWallet,
     activeWalletName: wallet?.adapter.name || null,
     networkStatus,
   };
@@ -76,9 +74,7 @@ export function WalletProvider({ children }) {
   return (
     <ConnectionProvider endpoint={RPC_URL}>
       <SolanaWalletProvider wallets={walletAdapters} autoConnect>
-        <WalletModalProvider>
-          <InnerProvider>{children}</InnerProvider>
-        </WalletModalProvider>
+        <InnerProvider>{children}</InnerProvider>
       </SolanaWalletProvider>
     </ConnectionProvider>
   );
