@@ -11,13 +11,14 @@ import { SolflareWalletAdapter } from "@solana/wallet-adapter-solflare";
 
 const RPC_URL = "https://api.mainnet-beta.solana.com";
 const MAINNET_GENESIS_HASH = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
+const ALLOWED_WALLETS = ["Phantom", "Solflare"];
 
 const VectorWalletContext = createContext(null);
 
 function InnerProvider({ children }) {
   const { connection } = useConnection();
-  const { publicKey, connected, connecting, disconnect, wallet } = useSolanaWallet();
-  const { setVisible } = useWalletModal();
+  const { publicKey, connected, connecting, disconnect, wallet, wallets, select } = useSolanaWallet();
+  const { setVisible, visible } = useWalletModal();
   const [networkStatus, setNetworkStatus] = useState("checking");
 
   useEffect(() => {
@@ -35,6 +36,23 @@ function InnerProvider({ children }) {
       cancelled = true;
     };
   }, [connection]);
+
+  // The official modal renders directly off the adapter's own registered
+  // wallet list — including any auto-injected Wallet Standard entries like
+  // "Mobile Wallet Adapter" that we never explicitly added. We only want
+  // to offer the two wallets we've actually chosen to support.
+  useEffect(() => {
+    if (!visible) return;
+    const style = document.createElement("style");
+    style.id = "vector-wallet-filter";
+    const rules = wallets
+      .filter((w) => !ALLOWED_WALLETS.includes(w.adapter.name))
+      .map((w) => `[data-wallet-name="${w.adapter.name}"] { display: none !important; }`)
+      .join("\n");
+    style.textContent = rules;
+    document.head.appendChild(style);
+    return () => style.remove();
+  }, [visible, wallets]);
 
   const address = publicKey ? publicKey.toBase58() : null;
 
