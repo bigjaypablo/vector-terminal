@@ -1,7 +1,7 @@
 import { useWallet } from "../../context/WalletContext";
 
 export default function WalletModal() {
-  const { modalOpen, closeModal, wallets, chooseWallet } = useWallet();
+  const { modalOpen, closeModal, wallets, chooseWallet, connectError } = useWallet();
 
   if (!modalOpen) return null;
 
@@ -16,6 +16,7 @@ export default function WalletModal() {
           </button>
         </div>
 
+        {connectError && <p className="text-[12px] text-red-400 mb-3">{connectError}</p>}
         <div className="flex flex-col gap-1">
           {wallets.map((w) => (
             <button

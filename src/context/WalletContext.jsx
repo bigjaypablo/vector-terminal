@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState, useEffect, useCallback } from "react";
+import { createContext, useContext, useMemo, useState, useEffect, useCallback, useRef } from "react";
 import {
   ConnectionProvider,
   WalletProvider as SolanaWalletProvider,
@@ -16,9 +16,20 @@ const VectorWalletContext = createContext(null);
 
 function InnerProvider({ children }) {
   const { connection } = useConnection();
-  const { publicKey, connected, connecting, disconnect, wallet, wallets, select } = useSolanaWallet();
+  const {
+    publicKey,
+    connected,
+    connecting,
+    disconnect,
+    wallet,
+    wallets,
+    select,
+    connect: adapterConnect,
+  } = useSolanaWallet();
   const [modalOpen, setModalOpen] = useState(false);
   const [networkStatus, setNetworkStatus] = useState("checking");
+  const [connectError, setConnectError] = useState(null);
+  const pendingConnect = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -36,13 +47,22 @@ function InnerProvider({ children }) {
     };
   }, [connection]);
 
+  // select() only chooses which adapter is "current" — it does not connect.
+  // Once the newly selected wallet is reflected here, explicitly connect it.
+  useEffect(() => {
+    if (!pendingConnect.current || !wallet || connected || connecting) return;
+    pendingConnect.current = false;
+    adapterConnect().catch((err) => {
+      setConnectError(err?.message || "Unable to connect wallet");
+    });
+  }, [wallet, connected, connecting, adapterConnect]);
+
   const chooseWallet = useCallback(
     (walletName) => {
+      setConnectError(null);
+      pendingConnect.current = true;
       select(walletName);
       setModalOpen(false);
-      // autoConnect on SolanaWalletProvider handles the actual connect() call
-      // once a wallet is selected — this is what triggers each adapter's own
-      // correct mobile-vs-desktop behavior, not anything we build ourselves.
     },
     [select]
   );
@@ -61,6 +81,7 @@ function InnerProvider({ children }) {
     closeModal: () => setModalOpen(false),
     wallets: visibleWallets,
     chooseWallet,
+    connectError,
     activeWalletName: wallet?.adapter.name || null,
     networkStatus,
   };
