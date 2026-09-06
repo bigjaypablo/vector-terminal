@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState, useEffect, useCallback, useRef } from "react";
+import { createContext, useContext, useMemo, useState, useEffect, useCallback } from "react";
 import {
   ConnectionProvider,
   WalletProvider as SolanaWalletProvider,
@@ -12,29 +12,20 @@ const RPC_URL = "https://api.mainnet-beta.solana.com";
 const MAINNET_GENESIS_HASH = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
 const ALLOWED_WALLETS = ["Phantom", "Solflare"];
 
+const DEEP_LINKS = {
+  Phantom: (url) => `https://phantom.app/ul/browse/${encodeURIComponent(url)}?ref=${encodeURIComponent(url)}`,
+  Solflare: (url) => `https://solflare.com/ul/v1/browse/${encodeURIComponent(url)}?ref=${encodeURIComponent(url)}`,
+};
+
 const VectorWalletContext = createContext(null);
 
 function InnerProvider({ children }) {
   const { connection } = useConnection();
-  const {
-    publicKey,
-    connected,
-    connecting,
-    disconnect,
-    wallet,
-    wallets,
-    select,
-    connect: adapterConnect,
-  } = useSolanaWallet();
+  const { publicKey, connected, connecting, disconnect, wallet, wallets, select, connect: adapterConnect } =
+    useSolanaWallet();
   const [modalOpen, setModalOpen] = useState(false);
   const [networkStatus, setNetworkStatus] = useState("checking");
   const [connectError, setConnectError] = useState(null);
-  const [debugLog, setDebugLog] = useState([]);
-  const pendingConnect = useRef(false);
-
-  const log = useCallback((msg) => {
-    setDebugLog((prev) => [...prev.slice(-6), `${new Date().toLocaleTimeString()} ${msg}`]);
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,31 +43,29 @@ function InnerProvider({ children }) {
     };
   }, [connection]);
 
-  useEffect(() => {
-    if (!pendingConnect.current) return;
-    log(`effect fired: wallet=${wallet?.adapter.name || "null"} readyState=${wallet?.readyState || "n/a"} connected=${connected} connecting=${connecting}`);
-    if (!wallet || connected || connecting) return;
-    pendingConnect.current = false;
-    log("calling adapterConnect()...");
-    adapterConnect()
-      .then(() => log("adapterConnect() resolved"))
-      .catch((err) => {
-        log(`adapterConnect() threw: ${err?.name || "Error"}: ${err?.message || err}`);
-        setConnectError(err?.message || "Unable to connect wallet");
-      });
-  }, [wallet, connected, connecting, adapterConnect, log]);
-
   const chooseWallet = useCallback(
     (walletName) => {
       setConnectError(null);
       const target = wallets.find((w) => w.adapter.name === walletName);
-      log(`chooseWallet(${walletName}) — current readyState: ${target?.readyState}`);
-      pendingConnect.current = true;
-      select(walletName);
-      log("select() called");
-      setModalOpen(false);
+
+      if (target?.readyState === "Installed") {
+        select(walletName);
+        setModalOpen(false);
+        adapterConnect().catch((err) => setConnectError(err?.message || "Unable to connect wallet"));
+        return;
+      }
+
+      // Not detected as a browser extension — redirect using the wallet's
+      // own documented mobile deep link, since its adapter's connect()
+      // can't do this reliably on every mobile browser.
+      const buildLink = DEEP_LINKS[walletName];
+      if (buildLink) {
+        window.location.href = buildLink(window.location.href);
+      } else {
+        setConnectError(`${walletName} is not installed and no deep link is available.`);
+      }
     },
-    [select, wallets, log]
+    [select, adapterConnect, wallets]
   );
 
   const address = publicKey ? publicKey.toBase58() : null;
@@ -96,7 +85,6 @@ function InnerProvider({ children }) {
     connectError,
     activeWalletName: wallet?.adapter.name || null,
     networkStatus,
-    debugLog,
   };
 
   return <VectorWalletContext.Provider value={value}>{children}</VectorWalletContext.Provider>;
