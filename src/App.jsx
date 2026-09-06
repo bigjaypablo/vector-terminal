@@ -9,7 +9,6 @@ import Transactions from './pages/Transactions'
 import WalletIntelligence from './pages/WalletIntelligence'
 import Settings from './pages/Settings'
 import { WalletProvider } from './context/WalletContext'
-import WalletModal from './components/layout/WalletModal'
 
 function App() {
   return (
@@ -27,7 +26,6 @@ function App() {
           <Route path="/token/:symbol" element={<TokenIntelligence />} />
         </Routes>
       </Router>
-      <WalletModal />
     </WalletProvider>
   )
 }

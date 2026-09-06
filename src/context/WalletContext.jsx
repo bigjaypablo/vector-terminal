@@ -1,10 +1,11 @@
-import { createContext, useContext, useMemo, useState, useCallback, useEffect } from "react";
+import { createContext, useContext, useMemo, useState, useEffect } from "react";
 import {
   ConnectionProvider,
   WalletProvider as SolanaWalletProvider,
   useWallet as useSolanaWallet,
   useConnection,
 } from "@solana/wallet-adapter-react";
+import { WalletModalProvider, useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { PhantomWalletAdapter } from "@solana/wallet-adapter-phantom";
 import { SolflareWalletAdapter } from "@solana/wallet-adapter-solflare";
 
@@ -15,9 +16,8 @@ const VectorWalletContext = createContext(null);
 
 function InnerProvider({ children }) {
   const { connection } = useConnection();
-  const { publicKey, connected, connecting, wallets, select, disconnect, wallet } = useSolanaWallet();
-  const [modalOpen, setModalOpen] = useState(false);
-  const [connectError, setConnectError] = useState(null);
+  const { publicKey, connected, connecting, disconnect, wallet } = useSolanaWallet();
+  const { setVisible } = useWalletModal();
   const [networkStatus, setNetworkStatus] = useState("checking");
 
   useEffect(() => {
@@ -36,23 +36,6 @@ function InnerProvider({ children }) {
     };
   }, [connection]);
 
-  const openConnectModal = useCallback(() => {
-    setConnectError(null);
-    setModalOpen(true);
-  }, []);
-
-  const chooseWallet = useCallback(
-    async (walletName) => {
-      try {
-        select(walletName);
-        setModalOpen(false);
-      } catch (err) {
-        setConnectError(err.message || "Unable to select wallet");
-      }
-    },
-    [select]
-  );
-
   const address = publicKey ? publicKey.toBase58() : null;
 
   const value = {
@@ -60,13 +43,8 @@ function InnerProvider({ children }) {
     connecting,
     address,
     shortAddress: address ? `${address.slice(0, 4)}...${address.slice(-4)}` : null,
-    connect: openConnectModal,
+    connect: () => setVisible(true),
     disconnect,
-    modalOpen,
-    closeModal: () => setModalOpen(false),
-    wallets,
-    chooseWallet,
-    connectError,
     activeWalletName: wallet?.adapter.name || null,
     networkStatus,
   };
@@ -80,7 +58,9 @@ export function WalletProvider({ children }) {
   return (
     <ConnectionProvider endpoint={RPC_URL}>
       <SolanaWalletProvider wallets={walletAdapters} autoConnect>
-        <InnerProvider>{children}</InnerProvider>
+        <WalletModalProvider>
+          <InnerProvider>{children}</InnerProvider>
+        </WalletModalProvider>
       </SolanaWalletProvider>
     </ConnectionProvider>
   );
