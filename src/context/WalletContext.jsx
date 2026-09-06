@@ -29,7 +29,12 @@ function InnerProvider({ children }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [networkStatus, setNetworkStatus] = useState("checking");
   const [connectError, setConnectError] = useState(null);
+  const [debugLog, setDebugLog] = useState([]);
   const pendingConnect = useRef(false);
+
+  const log = useCallback((msg) => {
+    setDebugLog((prev) => [...prev.slice(-6), `${new Date().toLocaleTimeString()} ${msg}`]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -47,24 +52,31 @@ function InnerProvider({ children }) {
     };
   }, [connection]);
 
-  // select() only chooses which adapter is "current" — it does not connect.
-  // Once the newly selected wallet is reflected here, explicitly connect it.
   useEffect(() => {
-    if (!pendingConnect.current || !wallet || connected || connecting) return;
+    if (!pendingConnect.current) return;
+    log(`effect fired: wallet=${wallet?.adapter.name || "null"} readyState=${wallet?.readyState || "n/a"} connected=${connected} connecting=${connecting}`);
+    if (!wallet || connected || connecting) return;
     pendingConnect.current = false;
-    adapterConnect().catch((err) => {
-      setConnectError(err?.message || "Unable to connect wallet");
-    });
-  }, [wallet, connected, connecting, adapterConnect]);
+    log("calling adapterConnect()...");
+    adapterConnect()
+      .then(() => log("adapterConnect() resolved"))
+      .catch((err) => {
+        log(`adapterConnect() threw: ${err?.name || "Error"}: ${err?.message || err}`);
+        setConnectError(err?.message || "Unable to connect wallet");
+      });
+  }, [wallet, connected, connecting, adapterConnect, log]);
 
   const chooseWallet = useCallback(
     (walletName) => {
       setConnectError(null);
+      const target = wallets.find((w) => w.adapter.name === walletName);
+      log(`chooseWallet(${walletName}) — current readyState: ${target?.readyState}`);
       pendingConnect.current = true;
       select(walletName);
+      log("select() called");
       setModalOpen(false);
     },
-    [select]
+    [select, wallets, log]
   );
 
   const address = publicKey ? publicKey.toBase58() : null;
@@ -84,6 +96,7 @@ function InnerProvider({ children }) {
     connectError,
     activeWalletName: wallet?.adapter.name || null,
     networkStatus,
+    debugLog,
   };
 
   return <VectorWalletContext.Provider value={value}>{children}</VectorWalletContext.Provider>;
